@@ -38,7 +38,22 @@ data class LlmResult(val text: String, val calls: List<LlmCall>)
 /** Transcript entries use the same provider-neutral shape as the Python backend. */
 data class Turn(val role: String, val content: String, val calls: List<LlmCall> = emptyList(), val callId: String? = null)
 
-class LlmException(val userMessage: String) : Exception(userMessage)
+open class LlmException(val userMessage: String) : Exception(userMessage)
+
+/** HTTP 400-type refusal; carries the provider's own explanation (e.g. model not found, tools unsupported). */
+class LlmBadRequest(userMessage: String, val providerMessage: String) : LlmException(userMessage)
+
+/** Pulls a short human-readable reason out of an error body (OpenAI/Groq/Gemini/Anthropic shapes). */
+fun providerErrorMessage(body: String): String {
+    val obj = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(body) }.getOrNull() as? JsonObject
+    val err = obj?.get("error")
+    val msg = when (err) {
+        is JsonObject -> (err["message"] as? JsonPrimitive)?.contentOrNull
+        is JsonPrimitive -> err.contentOrNull
+        else -> null
+    } ?: (obj?.get("message") as? JsonPrimitive)?.contentOrNull ?: body
+    return msg.replace(Regex("\\s+"), " ").trim().take(180)
+}
 
 private val NON_CHAT = Regex("embed|whisper|tts|audio|transcri|guard|moderation|imagen|image|veo|aqa|dall-e|vision-preview|rerank", RegexOption.IGNORE_CASE)
 
@@ -109,7 +124,8 @@ class LlmClient(private val cfg: LlmConfig, private val http: OkHttpClient = def
                     when {
                         r.code == 401 || r.code == 403 -> throw LlmException("The AI provider rejected the API key. Check it in AI Provider settings.")
                         r.code == 429 || r.code >= 500 -> "The AI provider is busy or unavailable (HTTP ${r.code})."
-                        r.code >= 400 -> throw LlmException("The AI provider refused the request (HTTP ${r.code}). Check the model name.")
+                        r.code >= 400 -> providerErrorMessage(text).let { why ->
+                            throw LlmBadRequest("The AI provider refused the request (HTTP ${r.code}): $why", why) }
                         else -> return@withContext try { json.parseToJsonElement(text).jsonObject }
                                 catch (e: Exception) { throw LlmException("The AI provider sent a response I couldn't read.") }
                     }

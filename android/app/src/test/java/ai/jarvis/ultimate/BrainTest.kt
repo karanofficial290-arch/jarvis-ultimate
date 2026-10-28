@@ -63,6 +63,13 @@ class BrainTest {
         assertTrue(ai.jarvis.ultimate.brain.PRESETS.all { it.baseUrl.isEmpty() || it.baseUrl.startsWith("http") })
     }
 
+    @Test fun providerErrorsAreReadable() {
+        assertEquals("The model `x` does not exist", ai.jarvis.ultimate.brain.providerErrorMessage(
+            """{"error":{"message":"The model `x` does not exist","type":"invalid_request_error"}}"""))
+        assertEquals("bad", ai.jarvis.ultimate.brain.providerErrorMessage("""[{"error":"bad"}]""").let { if (it.contains("bad")) "bad" else it })
+        assertEquals("plain text error", ai.jarvis.ultimate.brain.providerErrorMessage("plain   text error"))
+    }
+
     @Test fun sensitiveFilter() {
         listOf("my gmail password is tiger123", "the OTP is 482913", "card 4111 1111 1111 1111", "PAN ABCDE1234F",
             "aadhaar 2345 6789 0123", "key sk-abcdefghijklmnopqrstuv").forEach { assertNotNull(it, SensitiveFilter.reason(it)) }

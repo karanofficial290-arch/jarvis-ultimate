@@ -281,7 +281,13 @@ class LocalBackend(private val store: SecureStore, private val db: LocalDb, priv
         val defs = toolSpecs.filter { it.second == null || allowed(it.second!!) }.map { it.first }
         val work = turns.toMutableList()
         repeat(5) {
-            val r = client.complete(system, work, defs)
+            val r = try { client.complete(system, work, defs) } catch (e: ai.jarvis.ultimate.brain.LlmBadRequest) {
+                // Many models (or providers) reject tool definitions. Keep the conversation going without tools.
+                if (defs.isEmpty()) throw e
+                val plain = client.complete(system + "\nPhone actions are unavailable with the current model. If the user asks for one, " +
+                    "say so briefly and suggest picking a model that supports tool use in AI Provider settings.", turns, emptyList())
+                return plain.text.ifBlank { "(no response)" }
+            }
             if (r.calls.isEmpty()) return r.text.ifBlank { "(no response)" }
             work += Turn("assistant", r.text, r.calls)
             for (c in r.calls) {
@@ -317,6 +323,6 @@ class LocalBackend(private val store: SecureStore, private val db: LocalDb, priv
         ToolDef(name, desc, buildJsonObject {
             put("type", "object")
             putJsonObject("properties") { props.forEach { (k, v) -> put(k, v) } }
-            putJsonArray("required") { required.forEach { add(JsonPrimitive(it)) } }
+            if (required.isNotEmpty()) putJsonArray("required") { required.forEach { add(JsonPrimitive(it)) } }
         })
 }
