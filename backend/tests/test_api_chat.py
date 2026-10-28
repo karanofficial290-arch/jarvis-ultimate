@@ -209,3 +209,9 @@ def test_provider_test_endpoint(make_client):
     assert r["ok"] and r["sample"] == "ready" and r["latency_ms"] >= 0
     r = c.post("/api/provider/test", headers=auth).json()
     assert not r["ok"] and "rejected the credentials" in r["error"]
+
+
+def test_sensitive_memory_rejected_before_approval(client, auth):
+    r = client.post("/api/chat", json={"message": "remember that my password is tiger12345"}, headers=auth).json()
+    assert "won't save that because it looks like a password" in r["reply"]
+    assert client.get("/api/actions", headers=auth).json() == []

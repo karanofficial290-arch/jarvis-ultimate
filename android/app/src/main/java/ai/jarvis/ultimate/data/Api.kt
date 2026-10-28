@@ -19,8 +19,8 @@ import java.util.concurrent.TimeUnit
 
 class ApiException(val status: Int, message: String) : Exception(message)
 
-/** Client for YOUR Jarvis backend. Holds no provider API keys — those stay on the server. */
-class JarvisApi(baseUrl: String) {
+/** Client for YOUR Jarvis backend (subclassed by LocalBackend for phone-only mode). Holds no provider API keys — those stay on the server. */
+open class JarvisApi(baseUrl: String) {
     val base = baseUrl.trimEnd('/')
     var userToken: String? = null
     var deviceToken: String? = null
@@ -68,47 +68,47 @@ class JarvisApi(baseUrl: String) {
         json.decodeFromString(call("POST", path, token, body)!!)
 
     // ---- user ---------------------------------------------------------------------------
-    suspend fun status(): ServerStatus = get("/api/status", null)
+    open suspend fun status(): ServerStatus = get("/api/status", null)
 
-    suspend fun login(username: String, password: String, register: Boolean): String {
+    open suspend fun login(username: String, password: String, register: Boolean): String {
         val body = buildJsonObject { put("username", username); put("password", password) }
         val r: AuthResponse = post(if (register) "/api/auth/register" else "/api/auth/login", null, body)
         userToken = r.token
         return r.token
     }
 
-    suspend fun chat(message: String, conversationId: Int?): ChatResponse =
+    open suspend fun chat(message: String, conversationId: Int?): ChatResponse =
         post("/api/chat", userToken, buildJsonObject {
             put("message", message); conversationId?.let { put("conversation_id", it) }
         })
 
-    suspend fun pendingActions(): List<PendingAction> = get("/api/actions", userToken)
-    suspend fun resolve(id: Int, approve: Boolean): ActionResult =
+    open suspend fun pendingActions(): List<PendingAction> = get("/api/actions", userToken)
+    open suspend fun resolve(id: Int, approve: Boolean): ActionResult =
         post("/api/actions/$id/${if (approve) "confirm" else "deny"}", userToken)
 
-    suspend fun devices(): List<Device> = get("/api/devices", userToken)
-    suspend fun pairingCode(): PairingCode = post("/api/devices/pairing-code", userToken)
-    suspend fun setDeviceStatus(id: Int, approve: Boolean): Device =
+    open suspend fun devices(): List<Device> = get("/api/devices", userToken)
+    open suspend fun pairingCode(): PairingCode = post("/api/devices/pairing-code", userToken)
+    open suspend fun setDeviceStatus(id: Int, approve: Boolean): Device =
         post("/api/devices/$id/${if (approve) "approve" else "revoke"}", userToken)
 
-    suspend fun memories(query: String = ""): List<Memory> =
+    open suspend fun memories(query: String = ""): List<Memory> =
         get("/api/memories" + if (query.isBlank()) "" else "?q=" + java.net.URLEncoder.encode(query, "UTF-8"), userToken)
-    suspend fun addMemory(content: String, kind: String): Memory =
+    open suspend fun addMemory(content: String, kind: String): Memory =
         post("/api/memories", userToken, buildJsonObject { put("content", content); put("kind", kind) })
-    suspend fun deleteMemory(id: Int) { call("DELETE", "/api/memories/$id", userToken) }
-    suspend fun clearHistory() { call("DELETE", "/api/conversations", userToken) }
+    open suspend fun deleteMemory(id: Int) { call("DELETE", "/api/memories/$id", userToken) }
+    open suspend fun clearHistory() { call("DELETE", "/api/conversations", userToken) }
 
-    suspend fun settings(): JsonObject = get("/api/settings", userToken)
-    suspend fun saveSettings(s: JsonObject): JsonObject =
+    open suspend fun settings(): JsonObject = get("/api/settings", userToken)
+    open suspend fun saveSettings(s: JsonObject): JsonObject =
         json.decodeFromString(call("PUT", "/api/settings", userToken, s)!!)
 
-    suspend fun audit(): List<AuditEntry> = get("/api/audit", userToken)
+    open suspend fun audit(): List<AuditEntry> = get("/api/audit", userToken)
 
     // ---- device identity ------------------------------------------------------------------
-    suspend fun pair(code: String, name: String): PairResult =
+    open suspend fun pair(code: String, name: String): PairResult =
         post("/api/devices/pair", null, buildJsonObject { put("code", code); put("name", name); put("platform", "android") })
 
-    suspend fun fetchDeviceToken(deviceId: Int, secret: String): String {
+    open suspend fun fetchDeviceToken(deviceId: Int, secret: String): String {
         val r: AuthResponse = post("/api/devices/token", null, buildJsonObject {
             put("device_id", deviceId); put("device_secret", secret)
         })
@@ -116,15 +116,15 @@ class JarvisApi(baseUrl: String) {
         return r.token
     }
 
-    suspend fun heartbeat(capabilities: List<String>) {
+    open suspend fun heartbeat(capabilities: List<String>) {
         call("POST", "/api/device/heartbeat", deviceToken, buildJsonObject {
             put("capabilities", kotlinx.serialization.json.JsonArray(capabilities.map { kotlinx.serialization.json.JsonPrimitive(it) }))
         })
     }
 
-    suspend fun nextTask(): DeviceTask? = call("GET", "/api/device/tasks/next", deviceToken)?.let { json.decodeFromString(it) }
+    open suspend fun nextTask(): DeviceTask? = call("GET", "/api/device/tasks/next", deviceToken)?.let { json.decodeFromString(it) }
 
-    suspend fun postResult(taskId: Int, ok: Boolean, data: JsonObject, error: String?) {
+    open suspend fun postResult(taskId: Int, ok: Boolean, data: JsonObject, error: String?) {
         call("POST", "/api/device/tasks/$taskId/result", deviceToken, buildJsonObject {
             put("ok", ok); put("data", data); error?.let { put("error", it.take(500)) }
         })

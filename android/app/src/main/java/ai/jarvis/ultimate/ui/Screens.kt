@@ -30,6 +30,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -49,6 +50,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -95,8 +97,18 @@ fun LoginScreen(vm: MainViewModel) {
     var url by rememberSaveable { mutableStateOf(vm.store.backendUrl.ifBlank { "https://" }) }
     var user by rememberSaveable { mutableStateOf(vm.store.username) }
     var pass by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxSize().background(Bg).padding(24.dp).imePadding(), verticalArrangement = Arrangement.Center) {
-        Card(title = if (vm.status?.registrationOpen == true) "Create owner account" else "Sign in") {
+    var name by rememberSaveable { mutableStateOf(vm.store.username) }
+    Column(Modifier.fillMaxSize().background(Bg).padding(24.dp).imePadding().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)) {
+        Text("JARVIS", color = Cyan, fontSize = 34.sp, letterSpacing = 6.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Card(title = "Use on this phone only") {
+            Text("Works right away — no computer or server needed. Memory, approvals and phone actions stay on this phone.")
+            OutlinedTextField(name, { name = it }, label = { Text("Your name") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth().testTag("local_name"))
+            Button({ vm.startLocal(name) }, Modifier.fillMaxWidth().testTag("use_local")) { Text("Start Jarvis on this phone") }
+        }
+        Card(title = if (vm.status?.registrationOpen == true) "Or connect to your Jarvis server" else "Or sign in to your Jarvis server") {
+            Mono("Needed for: syncing with the web console and controlling your Windows computer.")
             OutlinedTextField(url, { url = it }, label = { Text("Backend URL") }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
             OutlinedTextField(user, { user = it }, label = { Text("Username") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -190,8 +202,8 @@ private fun Composer(vm: MainViewModel, state: AssistantState, requestMic: () ->
     var text by rememberSaveable { mutableStateOf("") }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.imePadding()) {
         MicButton(state, requestMic)
-        OutlinedTextField(text, { text = it }, placeholder = { Text("Ask Jarvis…") }, modifier = Modifier.weight(1f), maxLines = 4)
-        Button({ vm.send(text); text = "" }, enabled = text.isNotBlank() && state != AssistantState.PROCESSING) { Text("Send") }
+        OutlinedTextField(text, { text = it }, placeholder = { Text("Ask Jarvis…") }, modifier = Modifier.weight(1f).testTag("composer_input"), maxLines = 4)
+        Button({ vm.send(text); text = "" }, modifier = Modifier.testTag("send"), enabled = text.isNotBlank() && state != AssistantState.PROCESSING) { Text("Send") }
     }
 }
 
@@ -203,7 +215,7 @@ private fun PendingList(vm: MainViewModel) {
             Text(a.summary)
             Mono(a.tool)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button({ vm.resolve(a, true) }) { Text("Approve") }
+                Button({ vm.resolve(a, true) }, Modifier.testTag("approve")) { Text("Approve") }
                 OutlinedButton({ vm.resolve(a, false) }) { Text("Deny") }
             }
         }
@@ -231,7 +243,7 @@ fun Dashboard(vm: MainViewModel, state: AssistantState, requestMic: () -> Unit, 
             JarvisCore(state, level, Modifier.fillMaxWidth().widthIn(max = 360.dp).align(Alignment.CenterHorizontally))
             Text(state.name, color = stateColor(state), fontFamily = FontFamily.Monospace, letterSpacing = 6.sp,
                 modifier = Modifier.align(Alignment.CenterHorizontally))
-            vm.chat.lastOrNull { it.role == "assistant" }?.let { Text(it.text, color = if (it.isError) Danger else Color.Unspecified) }
+            vm.chat.lastOrNull { it.role == "assistant" }?.let { Text(it.text, color = if (it.isError) Danger else Color.Unspecified, modifier = Modifier.testTag("last_reply")) }
             Composer(vm, state, requestMic)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -246,7 +258,7 @@ fun Dashboard(vm: MainViewModel, state: AssistantState, requestMic: () -> Unit, 
         Card(title = "Tool activity") {
             if (vm.activity.isEmpty()) Mono("No tool activity yet.") else vm.activity.take(8).forEach { Mono(it, Color(0xFFD8F3FF)) }
         }
-        Card(title = "This phone") { Mono("Device agent: $pollState") }
+        Card(title = "This phone") { Mono(if (vm.isLocal) "Phone-only mode: actions run directly on this phone" else "Device agent: $pollState") }
     }
 }
 
@@ -312,7 +324,9 @@ fun DevicesScreen(vm: MainViewModel, pollState: String) {
     LaunchedEffect(Unit) { vm.refreshDevices() }
     var confirmPair by remember { mutableStateOf(false) }
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Card(title = "This phone") {
+        if (vm.isLocal) Card(title = "Phone-only mode") {
+            Text("Jarvis controls this phone directly. To also control a Windows computer or sync with the web console, sign out (Privacy → Sign out) and connect to your Jarvis server.")
+        } else Card(title = "This phone") {
             Mono("Agent: $pollState", Color(0xFFD8F3FF))
             if (vm.store.deviceId == null) Button({ confirmPair = true }) { Text("Let Jarvis control this phone") }
             else OutlinedButton({ vm.unpairThisPhone() }) { Text("Unpair this phone") }
@@ -374,6 +388,7 @@ fun MemoryScreen(vm: MainViewModel) {
 // ---- 7. AI provider --------------------------------------------------------------------------------------------
 @Composable
 fun ProviderScreen(vm: MainViewModel) {
+    if (vm.isLocal) { LocalProviderScreen(vm); return }
     val s = vm.status
     Card(title = "AI provider") {
         if (s == null) { Mono("Not connected."); return@Card }
@@ -382,6 +397,38 @@ fun ProviderScreen(vm: MainViewModel) {
         Mono("Model: ${s.provider.model}", Color(0xFFD8F3FF), 14)
         Mono("Web search: ${if (s.search.configured) s.search.name else "not configured"}", Color(0xFFD8F3FF), 14)
         Mono("Providers and API keys are configured only on your backend server, never in this app. Change JARVIS_LLM_PROVIDER / JARVIS_LLM_MODEL there and restart it.")
+    }
+}
+
+@Composable
+private fun LocalProviderScreen(vm: MainViewModel) {
+    var provider by rememberSaveable { mutableStateOf(vm.store.llmProvider) }
+    var baseUrl by rememberSaveable { mutableStateOf(vm.store.llmBaseUrl) }
+    var model by rememberSaveable { mutableStateOf(vm.store.llmModel) }
+    var key by remember { mutableStateOf("") }
+    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Card(title = "Select AI provider") {
+            listOf("local-rules" to "Local commands (no AI, offline)", "anthropic" to "Anthropic Claude", "openai-compatible" to "OpenAI-compatible (OpenAI, Groq, OpenRouter, Ollama…)").forEach { (k, label) ->
+                Row(Modifier.fillMaxWidth().clickable { provider = k }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = provider == k, onClick = { provider = k }); Text(label)
+                }
+            }
+        }
+        if (provider != "local-rules") Card(title = "Model settings") {
+            if (provider == "openai-compatible") OutlinedTextField(baseUrl, { baseUrl = it }, label = { Text("Base URL, e.g. https://api.openai.com/v1") },
+                singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(model, { model = it }, label = { Text("Model name (from your provider's docs)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(key, { key = it }, label = { Text(if (vm.store.llmApiKey.isBlank()) "API key" else "API key (saved — leave blank to keep)") },
+                singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+            Mono("Your key is stored encrypted on this phone only and sent only to the provider you chose.")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button({ vm.saveLlm(provider, baseUrl, model, key); key = "" }) { Text("Save") }
+            OutlinedButton({ vm.testLlm() }) { Text("Test Connection") }
+        }
+        if (vm.providerTest.isNotBlank()) Mono(vm.providerTest, if (vm.providerTest.startsWith("Connected")) Ok else Amber, 13)
+        val p = vm.status?.provider
+        Mono("Active: ${if (p?.ai == true) "${p.name} · ${p.model}" else "local command mode"}", Color(0xFFD8F3FF), 13)
     }
 }
 

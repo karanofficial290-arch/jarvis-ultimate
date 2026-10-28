@@ -131,6 +131,13 @@ class ToolExecutor:
             self.audit(user_id, actor, "tool.denied", name, args.model_dump(), "denied")
             return {"ok": False, "error": f"Permission '{tool.permission}' is turned off in privacy settings."}
 
+        if name == "save_memory":  # refuse secrets up front instead of asking the user to approve them
+            from ..memory import sensitive_reason
+            reason = sensitive_reason(getattr(args, "content", ""))
+            if reason:
+                self.audit(user_id, actor, "tool.rejected_sensitive", name, {}, "rejected")
+                return {"ok": False, "error": f"I won't save that because it looks like {reason}. Sensitive data is never stored."}
+
         ctx = ToolContext(user_id, conversation_id, settings, self.memory, self.search)
         if not confirmed and tool.needs_confirmation(ctx, args):
             summary = tool.summarize(args) or f"Run {name}"

@@ -35,4 +35,28 @@ class SecureStore(context: Context) {
     fun forgetDevice() = prefs.edit().remove("device_id").remove("device_secret").apply()
 
     fun signOut() = prefs.edit().remove("user_token").apply()
+
+    /** "server" (connect to a Jarvis backend) or "local" (phone-only mode); empty until chosen. */
+    var mode: String
+        get() = prefs.getString("mode", "") ?: ""
+        set(v) = prefs.edit().putString("mode", v).apply()
+
+    // Phone-only mode AI provider (typed by the user; encrypted at rest; never in source code).
+    var llmProvider: String
+        get() = prefs.getString("llm_provider", "local-rules") ?: "local-rules"
+        set(v) = prefs.edit().putString("llm_provider", v).apply()
+    var llmBaseUrl: String
+        get() = prefs.getString("llm_base_url", "") ?: ""
+        set(v) = prefs.edit().putString("llm_base_url", v).apply()
+    var llmModel: String
+        get() = prefs.getString("llm_model", "") ?: ""
+        set(v) = prefs.edit().putString("llm_model", v).apply()
+    var llmApiKey: String
+        get() = prefs.getString("llm_api_key", "") ?: ""
+        set(v) = prefs.edit().putString("llm_api_key", v).apply()
+
+    /** Local settings JSON (same shape as the backend's /api/settings). */
+    var localSettings: String
+        get() = prefs.getString("local_settings", "") ?: ""
+        set(v) = prefs.edit().putString("local_settings", v).apply()
 }

@@ -11,10 +11,12 @@ def esc(s: str) -> str:
     return s.replace("%", "%25").replace("\r", "").replace("\n", "%0A")[:3500]
 
 
-mode, path = sys.argv[1], sys.argv[2]
+mode, paths = sys.argv[1], sys.argv[2:]
+path = paths[0] if paths else ""
 n = 0
 if mode == "junit":
-    for case in ET.parse(path).iter("testcase"):
+    cases = [c for p in paths for c in ET.parse(p).iter("testcase")]
+    for case in cases:
         for bad in list(case.findall("failure")) + list(case.findall("error")):
             n += 1
             text = (bad.get("message") or "") + "\n" + (bad.text or "")[-2500:]

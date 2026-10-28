@@ -13,6 +13,11 @@ import ai.jarvis.ultimate.data.AuditEntry
 import ai.jarvis.ultimate.data.ChatLine
 import ai.jarvis.ultimate.data.Device
 import ai.jarvis.ultimate.data.JarvisApi
+import ai.jarvis.ultimate.data.LocalBackend
+import ai.jarvis.ultimate.brain.LlmClient
+import ai.jarvis.ultimate.brain.LlmConfig
+import ai.jarvis.ultimate.brain.LlmException
+import ai.jarvis.ultimate.brain.Turn
 import ai.jarvis.ultimate.data.LocalDb
 import ai.jarvis.ultimate.data.Memory
 import ai.jarvis.ultimate.data.PendingAction
@@ -62,6 +67,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var pairingCode by mutableStateOf<String?>(null); private set
     var toast by mutableStateOf<String?>(null)
     var speakReplies by mutableStateOf(true)
+    /** Phone-only mode: the assistant runs entirely inside the app (no server). */
+    var isLocal by mutableStateOf(false); private set
+    var providerTest by mutableStateOf("")
     private var conversationId: Int? = null
     private val processing = MutableStateFlow(false)
 
@@ -76,6 +84,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun startup() = viewModelScope.launch {
         boot.clear(); phase = Phase.STARTUP
         boot += BootLine("Initialising…", null)
+        if (store.mode == "local") {
+            boot += BootLine("Phone-only mode", true)
+            boot += BootLine("Voice input: ${if (voice.recognitionAvailable) "available" else "not available on this phone"}", voice.recognitionAvailable)
+            delay(400); enterLocal(); return@launch
+        }
         val url = store.backendUrl
         if (url.isBlank()) { boot += BootLine("No backend configured yet", false); phase = Phase.LOGIN; return@launch }
         val client = JarvisApi(url).also { it.userToken = store.userToken }
@@ -105,12 +118,51 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val st = client.status()
             client.login(username.trim(), password, register = st.registrationOpen)
             store.backendUrl = client.base; store.username = username.trim(); store.userToken = client.userToken
+            store.mode = "server"; isLocal = false
             api = client; status = st; backendOnline = true
             refreshAll(); phase = Phase.READY
         } catch (e: ApiException) { loginError = e.message ?: "Sign-in failed" }
     }
 
-    fun signOut() { store.signOut(); api?.userToken = null; phase = Phase.LOGIN }
+    fun signOut() {
+        store.signOut(); api?.userToken = null
+        if (isLocal) { store.mode = ""; isLocal = false; api = null }
+        phase = Phase.LOGIN
+    }
+
+    /** Start phone-only mode (no server needed). */
+    fun startLocal(name: String) = viewModelScope.launch {
+        store.username = name.trim().ifBlank { "Boss" }.take(40)
+        store.mode = "local"
+        enterLocal()
+    }
+
+    private suspend fun enterLocal() {
+        val local = LocalBackend(store, db, tools)
+        api = local; isLocal = true
+        status = local.status(); backendOnline = true
+        refreshAll(); phase = Phase.READY
+    }
+
+    /** Phone-only mode: save the user's own AI provider settings (encrypted on this phone). */
+    fun saveLlm(provider: String, baseUrl: String, model: String, apiKey: String) = viewModelScope.launch {
+        store.llmProvider = provider; store.llmBaseUrl = baseUrl.trim(); store.llmModel = model.trim()
+        if (apiKey.isNotBlank()) store.llmApiKey = apiKey.trim()
+        api?.let { status = it.status() }
+        providerTest = ""; toast = if (status?.provider?.ai == true) "AI provider saved." else "Saved. Local command mode is active (no AI)."
+    }
+
+    /** Real round-trip to the configured provider. */
+    fun testLlm() = viewModelScope.launch {
+        val cfg = LlmConfig(store.llmProvider, store.llmBaseUrl, store.llmModel, store.llmApiKey)
+        if (!cfg.usable) { providerTest = "No AI provider configured — local command mode."; return@launch }
+        providerTest = "Testing…"
+        val start = System.currentTimeMillis()
+        providerTest = try {
+            LlmClient(cfg).complete("Reply with the single word: ready", listOf(Turn("user", "ping")), emptyList())
+            "Connected · ${System.currentTimeMillis() - start} ms"
+        } catch (e: LlmException) { e.userMessage }
+    }
 
     private suspend fun refreshAll() {
         val a = api ?: return
@@ -188,6 +240,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Register THIS phone as a device: the signed-in owner explicitly approves it in the same step. */
     fun registerThisPhone() = guarded {
+        if (isLocal) { toast = "In phone-only mode Jarvis already controls this phone."; return@guarded }
         val code = pairingCode().code
         val name = "${Build.MANUFACTURER} ${Build.MODEL}".take(60)
         val res = pair(code, name)
