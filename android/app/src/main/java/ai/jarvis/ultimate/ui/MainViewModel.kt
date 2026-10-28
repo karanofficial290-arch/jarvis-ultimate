@@ -70,6 +70,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Phone-only mode: the assistant runs entirely inside the app (no server). */
     var isLocal by mutableStateOf(false); private set
     var providerTest by mutableStateOf("")
+    val models = mutableStateListOf<String>()
+    var modelsMsg by mutableStateOf("")
     private var conversationId: Int? = null
     private val processing = MutableStateFlow(false)
 
@@ -150,6 +152,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (apiKey.isNotBlank()) store.llmApiKey = apiKey.trim()
         api?.let { status = it.status() }
         providerTest = ""; toast = if (status?.provider?.ai == true) "AI provider saved." else "Saved. Local command mode is active (no AI)."
+    }
+
+    /** Fetch the live model list for the entered endpoint + key (nothing hardcoded). */
+    fun loadModels(provider: String, baseUrl: String, apiKey: String) = viewModelScope.launch {
+        modelsMsg = "Loading models…"; models.clear()
+        val key = apiKey.ifBlank { store.llmApiKey }
+        try {
+            val list = LlmClient(LlmConfig(provider, baseUrl.trim(), "x", key.trim())).listModels()
+            models.addAll(list)
+            modelsMsg = if (list.isEmpty()) "No chat models found for this key." else "${list.size} models — tap one to use it."
+        } catch (e: LlmException) { modelsMsg = e.userMessage }
     }
 
     /** Real round-trip to the configured provider. */

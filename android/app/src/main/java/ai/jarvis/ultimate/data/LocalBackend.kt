@@ -266,12 +266,16 @@ class LocalBackend(private val store: SecureStore, private val db: LocalDb, priv
         val s = settings()
         val mems = if (allowed("memory.read") && flag("memory_enabled")) db.memories().preferences() else emptyList()
         val system = buildString {
-            append("You are ${s["assistant_name"]?.jsonPrimitive?.contentOrNull ?: "Jarvis"}, a personal AI assistant inspired by JARVIS, running on the user's Android phone. ")
-            append("Address the user as \"${s["address_as"]?.jsonPrimitive?.contentOrNull ?: "sir"}\" now and then. Replies may be spoken aloud: keep them short.\n")
-            append("Reply in the user's language: English, Hindi (Devanagari) or Hinglish (Roman script).\n")
+            val name = s["assistant_name"]?.jsonPrimitive?.contentOrNull ?: "Jarvis"
+            val sir = s["address_as"]?.jsonPrimitive?.contentOrNull ?: "sir"
+            append("You are $name — inspired by JARVIS: calm, warm, quick-witted and genuinely helpful, like a loyal assistant with a dry sense of humour. ")
+            append("You run on the user's Android phone. The user's name is ${store.username.ifBlank { "unknown" }}; call them \"$sir\" or by name now and then.\n")
+            append("Talk like a real person, not a manual. Match the user's language and tone: Hinglish (Hindi in Roman letters) → natural Hinglish; Hindi script → Hindi; English → English. ")
+            append("Keep replies short (1–3 sentences) unless asked for detail — they may be spoken aloud. Never repeat the same sentence twice in a conversation. ")
+            append("Answer general questions (facts, advice, coding, studies, planning, writing) from your own knowledge with confidence, and say clearly when you're unsure or your info may be outdated.\n")
             append("Now: ${SimpleDateFormat("EEEE d MMMM yyyy, HH:mm", Locale.ENGLISH).format(Date())}.\n")
-            append("Never claim an action happened unless its tool result has \"ok\": true. If status is awaiting_confirmation, tell the user to approve it in the app. ")
-            append("Say when you're unsure; ask a short question when a request is ambiguous. Never ask for passwords or OTPs.\n")
+            append("Use tools only for actions on the phone, the time, or memory. Never claim an action happened unless its tool result has \"ok\": true; ")
+            append("if a result says awaiting_confirmation, tell the user to tap Approve. Ask one short question when a request is ambiguous. Never ask for passwords or OTPs.\n")
             append(if (mems.isEmpty()) "No saved memories are in use." else "Saved preferences (user-approved):\n" + mems.joinToString("\n") { "- ${it.content}" })
         }
         val defs = toolSpecs.filter { it.second == null || allowed(it.second!!) }.map { it.first }

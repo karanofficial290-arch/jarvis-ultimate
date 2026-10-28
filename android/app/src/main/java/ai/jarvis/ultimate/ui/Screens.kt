@@ -51,6 +51,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalUriHandler
+import ai.jarvis.ultimate.brain.PRESETS
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -239,6 +241,17 @@ fun Dashboard(vm: MainViewModel, state: AssistantState, requestMic: () -> Unit, 
             }
         }
         Text("I'm JARVIS, your personal AI assistant. How can I help you today?", fontSize = 16.sp)
+        if (vm.status?.provider?.ai != true) {
+            Row(Modifier.fillMaxWidth().background(Amber.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+                .border(1.dp, Amber.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                .clickable { open("ai") }.padding(12.dp).testTag("connect_ai_banner"), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("AI not connected", color = Amber)
+                    Text("Right now I only understand simple commands. Tap to connect a free AI (Groq/Gemini) — 2 minutes.", fontSize = 13.sp)
+                }
+                Text("›", color = Amber, fontSize = 22.sp)
+            }
+        }
         Card {
             JarvisCore(state, level, Modifier.fillMaxWidth().widthIn(max = 360.dp).align(Alignment.CenterHorizontally))
             Text(state.name, color = stateColor(state), fontFamily = FontFamily.Monospace, letterSpacing = 6.sp,
@@ -406,20 +419,40 @@ private fun LocalProviderScreen(vm: MainViewModel) {
     var baseUrl by rememberSaveable { mutableStateOf(vm.store.llmBaseUrl) }
     var model by rememberSaveable { mutableStateOf(vm.store.llmModel) }
     var key by remember { mutableStateOf("") }
+    var preset by rememberSaveable { mutableStateOf(PRESETS.firstOrNull { it.baseUrl == vm.store.llmBaseUrl && it.provider == vm.store.llmProvider }?.key ?: "") }
+    val uri = LocalUriHandler.current
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Card(title = "Select AI provider") {
-            listOf("local-rules" to "Local commands (no AI, offline)", "anthropic" to "Anthropic Claude", "openai-compatible" to "OpenAI-compatible (OpenAI, Groq, OpenRouter, Ollama…)").forEach { (k, label) ->
-                Row(Modifier.fillMaxWidth().clickable { provider = k }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = provider == k, onClick = { provider = k }); Text(label)
+        Card(title = "Connect an AI brain") {
+            Text("Without AI, Jarvis only knows simple commands. Pick a provider — Groq and Gemini have free keys.")
+            PRESETS.forEach { p ->
+                Row(Modifier.fillMaxWidth().clickable {
+                    preset = p.key; provider = p.provider; baseUrl = p.baseUrl; model = ""; vm.models.clear(); vm.modelsMsg = ""
+                }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = preset == p.key, onClick = { preset = p.key; provider = p.provider; baseUrl = p.baseUrl; model = ""; vm.models.clear() })
+                    Column(Modifier.weight(1f)) { Text(p.label); Mono(p.note) }
                 }
             }
+            Row(Modifier.fillMaxWidth().clickable { preset = ""; provider = "local-rules" }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = provider == "local-rules", onClick = { preset = ""; provider = "local-rules" })
+                Text("No AI (offline simple commands)")
+            }
         }
-        if (provider != "local-rules") Card(title = "Model settings") {
-            if (provider == "openai-compatible") OutlinedTextField(baseUrl, { baseUrl = it }, label = { Text("Base URL, e.g. https://api.openai.com/v1") },
-                singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(model, { model = it }, label = { Text("Model name (from your provider's docs)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(key, { key = it }, label = { Text(if (vm.store.llmApiKey.isBlank()) "API key" else "API key (saved — leave blank to keep)") },
-                singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+        if (provider != "local-rules") Card(title = "Step 2 — key and model") {
+            PRESETS.firstOrNull { it.key == preset }?.let { p ->
+                OutlinedButton({ uri.openUri(p.keyUrl) }) { Text("Get a key from ${p.label.substringBefore(" (")} ↗") }
+            }
+            OutlinedTextField(key, { key = it }, label = { Text(if (vm.store.llmApiKey.isBlank()) "Paste API key" else "API key (saved — leave blank to keep)") },
+                singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth().testTag("api_key"))
+            if (preset == "" || preset == "ollama" || provider == "openai-compatible" && PRESETS.none { it.baseUrl == baseUrl })
+                OutlinedTextField(baseUrl, { baseUrl = it }, label = { Text("Base URL") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Button({ vm.loadModels(provider, baseUrl, key) }, Modifier.fillMaxWidth()) { Text("Load models") }
+            if (vm.modelsMsg.isNotBlank()) Mono(vm.modelsMsg, Color(0xFFD8F3FF), 13)
+            vm.models.take(40).forEach { m ->
+                Row(Modifier.fillMaxWidth().clickable { model = m }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = model == m, onClick = { model = m }); Text(m, fontSize = 14.sp)
+                }
+            }
+            OutlinedTextField(model, { model = it }, label = { Text("Model") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Mono("Your key is stored encrypted on this phone only and sent only to the provider you chose.")
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -428,7 +461,7 @@ private fun LocalProviderScreen(vm: MainViewModel) {
         }
         if (vm.providerTest.isNotBlank()) Mono(vm.providerTest, if (vm.providerTest.startsWith("Connected")) Ok else Amber, 13)
         val p = vm.status?.provider
-        Mono("Active: ${if (p?.ai == true) "${p.name} · ${p.model}" else "local command mode"}", Color(0xFFD8F3FF), 13)
+        Mono("Active: ${if (p?.ai == true) "${p.name} · ${p.model}" else "no AI — simple commands only"}", Color(0xFFD8F3FF), 13)
     }
 }
 

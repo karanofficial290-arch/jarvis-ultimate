@@ -42,7 +42,25 @@ class BrainTest {
         assertEquals("android_prepare_call", call("call 98765 43210").tool)
         assertTrue(call("search for monsoon news").args["url"]!!.jsonPrimitive.content.startsWith("https://www.google.com/search?q=monsoon"))
         assertEquals("wifi", call("open wifi settings").args["screen"]!!.jsonPrimitive.content)
-        assertTrue(reply("write me a poem").contains("local command mode"))
+        reply("write me a poem").let { assertTrue(it, it.contains("AI")) }   // honest fallback, points to AI setup
+    }
+
+    @Test fun smallTalkIsNaturalAndBilingual() {
+        assertEquals("Bilkul fit hoon, sir. Aap batao, aaj kya karna hai?", reply("kaisa hai bhai, how are you"))
+        assertTrue(reply("thanks jarvis").startsWith("Anytime"))
+        assertTrue(reply("shukriya").startsWith("Koi baat nahi"))
+        assertTrue(reply("tum kaun ho").startsWith("Main JARVIS hoon"))
+        val a = reply("tell me a joke"); val b = reply("tell me a joke")
+        assertTrue("jokes should vary", a != b)
+        val f1 = reply("explain quantum physics"); val f2 = reply("explain quantum physics")
+        assertTrue("fallback should not repeat word-for-word", f1 != f2)
+        assertTrue(reply("mujhe quantum physics samjhao").contains("AI"))
+    }
+
+    @Test fun modelListFiltering() {
+        assertEquals(listOf("gemini-x-flash", "llama-chat"),
+            ai.jarvis.ultimate.brain.chatModels(listOf("models/gemini-x-flash", "whisper-large-v3", "text-embedding-004", "llama-chat", "llama-guard-4")))
+        assertTrue(ai.jarvis.ultimate.brain.PRESETS.all { it.baseUrl.isEmpty() || it.baseUrl.startsWith("http") })
     }
 
     @Test fun sensitiveFilter() {

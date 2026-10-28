@@ -40,6 +40,28 @@ data class Turn(val role: String, val content: String, val calls: List<LlmCall> 
 
 class LlmException(val userMessage: String) : Exception(userMessage)
 
+private val NON_CHAT = Regex("embed|whisper|tts|audio|transcri|guard|moderation|imagen|image|veo|aqa|dall-e|vision-preview|rerank", RegexOption.IGNORE_CASE)
+
+/** Keeps chat-capable model ids, strips Gemini's "models/" prefix, sorted. */
+fun chatModels(ids: List<String>): List<String> =
+    ids.map { it.removePrefix("models/") }.filter { it.isNotBlank() && !NON_CHAT.containsMatchIn(it) }.distinct().sorted()
+
+/** Ready-made provider presets: only the endpoint is preset — the model is picked from the provider's live list. */
+data class ProviderPreset(val key: String, val label: String, val provider: String, val baseUrl: String, val keyUrl: String, val note: String)
+
+val PRESETS = listOf(
+    ProviderPreset("groq", "Groq (free, very fast)", "openai-compatible", "https://api.groq.com/openai/v1",
+        "https://console.groq.com/keys", "Free key, no credit card. Sign up → API Keys → Create."),
+    ProviderPreset("gemini", "Google Gemini (free tier)", "openai-compatible", "https://generativelanguage.googleapis.com/v1beta/openai",
+        "https://aistudio.google.com/apikey", "Free tier with a Google account. Get API key in AI Studio."),
+    ProviderPreset("openai", "OpenAI", "openai-compatible", "https://api.openai.com/v1",
+        "https://platform.openai.com/api-keys", "Paid."),
+    ProviderPreset("claude", "Anthropic Claude", "anthropic", "",
+        "https://console.anthropic.com/settings/keys", "Paid. Strong reasoning and Hindi."),
+    ProviderPreset("ollama", "Ollama on my PC (free, private)", "openai-compatible", "http://10.0.2.2:11434/v1",
+        "https://ollama.com/download", "Replace the address with your PC's Tailscale HTTPS address; no key needed."),
+)
+
 class LlmClient(private val cfg: LlmConfig, private val http: OkHttpClient = defaultHttp) {
     companion object {
         val json = Json { ignoreUnknownKeys = true }
@@ -52,6 +74,28 @@ class LlmClient(private val cfg: LlmConfig, private val http: OkHttpClient = def
         val (url, headers, body) = if (cfg.provider == "anthropic") anthropicRequest(system, turns, tools) else openAiRequest(system, turns, tools)
         val data = post(url, headers, body)
         return if (cfg.provider == "anthropic") parseAnthropic(data) else parseOpenAi(data)
+    }
+
+    /** Real list of models this key can use (so model names are never hardcoded or guessed). */
+    suspend fun listModels(): List<String> = withContext(Dispatchers.IO) {
+        val (url, headers) = if (cfg.provider == "anthropic")
+            cfg.baseUrl.ifBlank { "https://api.anthropic.com" }.trimEnd('/') + "/v1/models?limit=100" to
+                mapOf("x-api-key" to cfg.apiKey, "anthropic-version" to "2023-06-01")
+        else cfg.baseUrl.trimEnd('/') + "/models" to (if (cfg.apiKey.isNotBlank()) mapOf("authorization" to "Bearer ${cfg.apiKey}") else emptyMap())
+        val req = Request.Builder().url(url).get()
+        headers.forEach { (k, v) -> req.header(k, v) }
+        val text = try {
+            http.newCall(req.build()).execute().use { r ->
+                when {
+                    r.code == 401 || r.code == 403 -> throw LlmException("The provider rejected the API key.")
+                    !r.isSuccessful -> throw LlmException("Couldn't load models (HTTP ${r.code}). Check the base URL.")
+                    else -> r.body?.string().orEmpty()
+                }
+            }
+        } catch (e: IOException) { throw LlmException("Couldn't reach the AI provider. Check the internet connection.") }
+        val data = runCatching { json.parseToJsonElement(text).jsonObject["data"] as? JsonArray }.getOrNull()
+            ?: throw LlmException("The provider's model list couldn't be read.")
+        chatModels(data.mapNotNull { (it as? JsonObject)?.get("id")?.jsonPrimitive?.contentOrNull })
     }
 
     private suspend fun post(url: String, headers: Map<String, String>, body: JsonObject): JsonObject = withContext(Dispatchers.IO) {
