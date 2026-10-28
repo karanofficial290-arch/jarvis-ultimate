@@ -27,7 +27,7 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests
-        run: ./gradlew --no-daemon testDebugUnitTest 2>&1 | tee ../gradle-test.log; test ${PIPESTATUS[0]} -eq 0 || { python3 ../.github/scripts/annotate.py log ../gradle-test.log; exit 1; }
+        run: ./gradlew --no-daemon testDebugUnitTest 2>&1 | tee ../gradle-test.log; test ${PIPESTATUS[0]} -eq 0 || { python3 ../.github/scripts/annotate.py junit $(find app/build/test-results -name '*.xml'); python3 ../.github/scripts/annotate.py log ../gradle-test.log; exit 1; }
       - name: Build debug APK
         run: ./gradlew --no-daemon assembleDebug 2>&1 | tee ../gradle-build.log; test ${PIPESTATUS[0]} -eq 0 || { python3 ../.github/scripts/annotate.py log ../gradle-build.log; exit 1; }
       - name: Rename APK

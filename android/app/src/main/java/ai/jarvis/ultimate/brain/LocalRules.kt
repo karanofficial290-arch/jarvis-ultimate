@@ -25,7 +25,7 @@ object LocalRules {
     )
 
     private fun hasDevanagari(s: String) = s.any { it in 'ऀ'..'ॿ' }
-    private val HINGLISH = Regex("\\b(kya|hai|hain|kaise|kaisa|mujhe|mera|meri|karo|kar|batao|bata|aap|tum|nahi|nhi|kyun|kab|kaun|kuch|accha|acha|bhai|yaar|haan|ho)\\b")
+    private val HINGLISH = Regex("\\b(kya|hai|hain|kaise|kaisa|mujhe|mera|meri|karo|kar|batao|bata|aap|tum|nahi|nhi|kyun|kab|kaun|kuch|accha|acha|bhai|yaar|haan|ho|shukriya|dhanyavaad|dhanyawad|samjhao|bolo|chahiye)\\b")
     private fun hinglish(t: String) = HINGLISH.containsMatchIn(t)
     private var turn = 0
     private val JOKES = listOf(
