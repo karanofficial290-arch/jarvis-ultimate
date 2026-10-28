@@ -35,6 +35,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -67,8 +68,10 @@ import kotlinx.serialization.json.jsonPrimitive
 fun JarvisTheme(content: @Composable () -> Unit) = MaterialTheme(
     colorScheme = darkColorScheme(primary = Cyan, secondary = Blue, background = Bg, surface = Panel,
         onPrimary = Bg, onBackground = Color(0xFFD8F3FF), onSurface = Color(0xFFD8F3FF)),
-    content = content,
-)
+) {
+    // Surface sets the default text colour; without it Compose falls back to black text on the dark background.
+    Surface(color = Bg, contentColor = Color(0xFFD8F3FF), modifier = Modifier.fillMaxSize()) { content() }
+}
 
 @Composable
 private fun Card(modifier: Modifier = Modifier, title: String? = null, content: @Composable ColumnScope.() -> Unit) {
