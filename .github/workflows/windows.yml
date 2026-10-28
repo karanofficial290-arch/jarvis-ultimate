@@ -28,9 +28,11 @@ jobs:
       - name: Tests (incl. GUI smoke test on real Windows + PySide6)
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python -m pytest -q tests
+        shell: bash
+        run: python -m pytest -q tests --junitxml=junit.xml || { python ../.github/scripts/annotate.py junit junit.xml; exit 1; }
       - name: Build executable
-        run: pyinstaller --noconfirm jarvis_desktop.spec
+        shell: bash
+        run: pyinstaller --noconfirm jarvis_desktop.spec 2>&1 | tee build.log; test ${PIPESTATUS[0]} -eq 0 || { python ../.github/scripts/annotate.py log build.log; exit 1; }
       - name: Package
         shell: pwsh
         run: Compress-Archive -Path dist/JarvisDesktop/* -DestinationPath ../JarvisDesktop-windows.zip

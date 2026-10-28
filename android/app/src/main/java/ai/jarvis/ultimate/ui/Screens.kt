@@ -1,6 +1,7 @@
 package ai.jarvis.ultimate.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,10 +30,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
@@ -41,13 +43,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
@@ -108,42 +110,64 @@ fun LoginScreen(vm: MainViewModel) {
     }
 }
 
-// ---- main shell -------------------------------------------------------------------------------
-private val TABS = listOf("Home", "Voice", "Chat", "Devices", "Memory", "AI", "Privacy", "History")
+// ---- main shell: bottom navigation (Home, Chat, Memory, Devices, More) -----------------------
+private val NAV = listOf("home" to ("⌂" to "Home"), "chat" to ("💬" to "Chat"), "memory" to ("◈" to "Memory"),
+    "devices" to ("▣" to "Devices"), "more" to ("⋯" to "More"))
+private val MORE = listOf("voice" to "Voice Conversation", "ai" to "AI Provider Settings",
+    "privacy" to "Privacy & Security", "history" to "Automation History")
 
 @Composable
 fun MainScreen(vm: MainViewModel, requestMic: () -> Unit) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var route by rememberSaveable { mutableStateOf("home") }
     val state by vm.assistantState.collectAsState()
     val pollState by vm.poller.state.collectAsState()
     Column(Modifier.fillMaxSize().background(Bg)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically) {
+            if (route in MORE.map { it.first }) TextButton({ route = "more" }) { Text("‹ Back") }
             StatusDot(if (vm.backendOnline) Ok else Danger, if (vm.backendOnline) "Backend" else "Offline")
             StatusDot(if (vm.status?.provider?.ai == true) Ok else Amber, if (vm.status?.provider?.ai == true) "AI" else "Local cmds")
             StatusDot(if (state == AssistantState.LISTENING) Danger else Muted, if (state == AssistantState.LISTENING) "MIC ON" else "Mic off")
-            Spacer(Modifier.weight(1f))
-            Mono(state.name, Cyan)
         }
-        ScrollableTabRow(selectedTabIndex = tab, containerColor = Bg, contentColor = Cyan, edgePadding = 8.dp) {
-            TABS.forEachIndexed { i, t -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) }) }
+        Box(Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 4.dp)) {
+            when (route) {
+                "home" -> Dashboard(vm, state, requestMic, pollState) { route = it }
+                "voice" -> VoiceScreen(vm, state, requestMic)
+                "chat" -> ChatScreen(vm, requestMic)
+                "devices" -> DevicesScreen(vm, pollState)
+                "memory" -> MemoryScreen(vm)
+                "ai" -> ProviderScreen(vm)
+                "privacy" -> PrivacyScreen(vm)
+                "history" -> HistoryScreen(vm)
+                "more" -> MoreScreen { route = it }
+            }
         }
-        Box(Modifier.weight(1f).padding(12.dp)) {
-            when (tab) {
-                0 -> Dashboard(vm, state, requestMic, pollState)
-                1 -> VoiceScreen(vm, state, requestMic)
-                2 -> ChatScreen(vm, requestMic)
-                3 -> DevicesScreen(vm, pollState)
-                4 -> MemoryScreen(vm)
-                5 -> ProviderScreen(vm)
-                6 -> PrivacyScreen(vm)
-                7 -> HistoryScreen(vm)
+        NavigationBar(containerColor = Color(0xFF030A16)) {
+            NAV.forEach { (key, v) ->
+                val selected = route == key || (key == "more" && route in MORE.map { it.first })
+                NavigationBarItem(selected = selected, onClick = { route = key },
+                    icon = { Text(v.first, fontSize = 18.sp) }, label = { Text(v.second, fontSize = 11.sp) },
+                    colors = NavigationBarItemDefaults.colors(selectedTextColor = Cyan, selectedIconColor = Cyan,
+                        unselectedTextColor = Muted, unselectedIconColor = Muted, indicatorColor = Blue.copy(alpha = 0.25f)))
             }
         }
     }
     vm.toast?.let { msg ->
         AlertDialog(onDismissRequest = { vm.toast = null }, confirmButton = { TextButton({ vm.toast = null }) { Text("OK") } },
             text = { Text(msg) }, containerColor = Panel)
+    }
+}
+
+@Composable
+private fun MoreScreen(open: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("More", fontSize = 22.sp)
+        MORE.forEach { (key, label) ->
+            Row(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(14.dp)).border(1.dp, Cyan.copy(alpha = 0.18f), RoundedCornerShape(14.dp))
+                .clickable { open(key) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(label, Modifier.weight(1f)); Text("›", color = Muted, fontSize = 20.sp)
+            }
+        }
     }
 }
 
@@ -188,15 +212,35 @@ private fun PendingList(vm: MainViewModel) {
 
 // ---- 2. dashboard ---------------------------------------------------------------------------------
 @Composable
-fun Dashboard(vm: MainViewModel, state: AssistantState, requestMic: () -> Unit, pollState: String) {
+fun Dashboard(vm: MainViewModel, state: AssistantState, requestMic: () -> Unit, pollState: String, open: (String) -> Unit) {
     val level by vm.voice.level.collectAsState()
+    val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
+    val name = vm.store.username.replaceFirstChar { it.uppercase() }.ifBlank { "there" }
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(46.dp).background(Brush.linearGradient(listOf(Color(0xFF1E3A8A), Color(0xFF0E7490))), CircleShape)
+                .border(2.dp, Cyan, CircleShape), contentAlignment = Alignment.Center) { Text(name.take(1)) }
+            Spacer(Modifier.size(12.dp))
+            Column {
+                Text(if (hour < 12) "Good Morning," else if (hour < 17) "Good Afternoon," else "Good Evening,", color = Cyan, fontSize = 13.sp)
+                Text(name, fontSize = 22.sp)
+            }
+        }
+        Text("I'm JARVIS, your personal AI assistant. How can I help you today?", fontSize = 16.sp)
         Card {
             JarvisCore(state, level, Modifier.fillMaxWidth().widthIn(max = 360.dp).align(Alignment.CenterHorizontally))
             Text(state.name, color = stateColor(state), fontFamily = FontFamily.Monospace, letterSpacing = 6.sp,
                 modifier = Modifier.align(Alignment.CenterHorizontally))
             vm.chat.lastOrNull { it.role == "assistant" }?.let { Text(it.text, color = if (it.isError) Danger else Color.Unspecified) }
             Composer(vm, state, requestMic)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf("💬" to ("Chat" to "chat"), "🛠" to ("Tools" to "devices"), "◈" to ("Memory" to "memory"), "⚙" to ("Settings" to "privacy")).forEach { (ic, v) ->
+                Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(14.dp)).border(1.dp, Cyan.copy(alpha = 0.18f), RoundedCornerShape(14.dp))
+                    .clickable { open(v.second) }.padding(vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(ic, fontSize = 20.sp); Text(v.first, fontSize = 12.sp)
+                }
+            }
         }
         Card(title = "Needs your approval") { PendingList(vm) }
         Card(title = "Tool activity") {

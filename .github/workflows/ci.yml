@@ -19,4 +19,5 @@ jobs:
           pip install -r backend/requirements.txt
           pip install pytest httpx
       - name: Run all Python tests
-        run: python -m pytest -q backend/tests desktop/tests tests
+        run: |
+          python -m pytest -q backend/tests desktop/tests tests --junitxml=junit.xml || { python .github/scripts/annotate.py junit junit.xml; exit 1; }
