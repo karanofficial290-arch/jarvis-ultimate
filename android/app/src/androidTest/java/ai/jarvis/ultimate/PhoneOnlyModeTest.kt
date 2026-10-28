@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
@@ -23,13 +24,22 @@ class PhoneOnlyModeTest {
     private fun lastReply(): String =
         rule.onNodeWithTag("last_reply").fetchSemanticsNode().config[SemanticsProperties.Text].joinToString { it.text }
 
+    private var step = ""
+
     private fun say(text: String) {
-        rule.onNodeWithTag("composer_input").performTextInput(text)
-        rule.onNodeWithTag("send").performClick()
+        step = text
+        rule.onNodeWithTag("composer_input").performScrollTo().performTextInput(text)
+        rule.onNodeWithTag("send").performScrollTo().performClick()
     }
 
-    private fun waitReply(predicate: (String) -> Boolean) = rule.waitUntil(20_000) {
-        runCatching { predicate(lastReply()) }.getOrDefault(false)
+    /** Waits for the reply; on timeout reports which step failed and what Jarvis actually said. */
+    private fun waitReply(predicate: (String) -> Boolean) {
+        try {
+            rule.waitUntil(20_000) { runCatching { predicate(lastReply()) }.getOrDefault(false) }
+        } catch (e: Throwable) {
+            val actual = runCatching { lastReply() }.getOrElse { "<no reply node: ${it.message}>" }
+            throw AssertionError("Step '$step' — unexpected reply: '$actual'", e)
+        }
     }
 
     private fun dismissDialog() {
@@ -40,6 +50,7 @@ class PhoneOnlyModeTest {
         rule.waitUntilAtLeastOneExists(hasTestTag("use_local"), 20_000)
         rule.onNodeWithTag("local_name").performTextInput("Rahul")
         rule.onNodeWithTag("use_local").performClick()
+        step = "start phone-only mode"
         rule.waitUntilAtLeastOneExists(hasTestTag("composer_input"), 20_000)
         rule.onNodeWithText("Rahul").assertExists()                     // greeting uses the name
 
@@ -55,7 +66,7 @@ class PhoneOnlyModeTest {
         say("Remember that I prefer chai over coffee")
         waitReply { it.startsWith("I need your confirmation first") }
         rule.waitUntilAtLeastOneExists(hasTestTag("approve"), 10_000)
-        rule.onNodeWithTag("approve").performClick()
+        rule.onNodeWithTag("approve").performScrollTo().performClick()
         waitReply { it.startsWith("Saved to memory") }
         dismissDialog()
 
