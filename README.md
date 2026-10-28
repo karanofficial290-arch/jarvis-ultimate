@@ -15,7 +15,7 @@ device automation across phone and PC.
 [![Windows EXE](../../actions/workflows/windows.yml/badge.svg)](../../actions/workflows/windows.yml)
 
 ## Download
-- **Android:** `JarvisUltimate-debug.apk` from Releases → install (allow "unknown sources").
+- **Android:** `JarvisUltimate-debug.apk` from Releases/Actions → install (allow "unknown sources") → tap **Start Jarvis on this phone**. Works without any server (phone-only mode); add your own AI key in *More → AI Provider* for full conversations.
 - **Windows:** `JarvisDesktop-windows.zip` from Releases → unzip → `JarvisDesktop.exe`.
 - **Backend:** runs on any PC/server with Python (see Quick start). Both apps connect to it.
 

@@ -82,7 +82,8 @@ memory approval, every screen, mobile width) with zero console errors.
 - 🟡 Intent tools: open app/URL/camera/settings, notes & reminders (Room + Clock app), battery, SMS draft, dial prep
 - 🟡 EncryptedSharedPreferences for tokens/device secret; HTTPS-only network config
 - ✅ JVM unit test (API contract against a real backend response) passes on CI
-- ✅ APK — compiles and is built by CI (`JarvisUltimate-debug.apk`, debug-signed); 🟡 not yet installed on a real phone
+- ✅ APK — built by CI and **installed and driven on an Android 11 emulator** by an automated UI test (phone-only mode: greeting, time, battery, memory approval/recall, password refusal); 🟡 not yet tried on a physical phone
+- ✅ Phone-only mode — works without a server; optional user-supplied AI key (Anthropic / OpenAI-compatible) stored encrypted; 🟡 live AI calls not tested (no key in CI)
 - ❌ Wake word / background listening (see ANDROID.md for why)
 - ❌ Executing phone tasks while the app is in the background
 
