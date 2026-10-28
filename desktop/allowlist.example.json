@@ -1,0 +1,23 @@
+{
+  "_comment": "Copy to %APPDATA%\\JarvisDesktop\\allowlist.json and edit. Jarvis can ONLY use what is listed here.",
+  "applications": {
+    "notepad": "%SystemRoot%\\System32\\notepad.exe",
+    "calculator": "%SystemRoot%\\System32\\calc.exe",
+    "paint": "%SystemRoot%\\System32\\mspaint.exe",
+    "explorer": "%SystemRoot%\\explorer.exe"
+  },
+  "folders": {
+    "jarvis": "%USERPROFILE%\\Documents\\Jarvis",
+    "downloads": "%USERPROFILE%\\Downloads"
+  },
+  "notes_folder": "%USERPROFILE%\\Documents\\Jarvis\\Notes",
+  "enabled_actions": [
+    "desktop_open_app",
+    "desktop_open_url",
+    "desktop_create_note",
+    "desktop_list_folder",
+    "desktop_read_document",
+    "desktop_organize_folder"
+  ],
+  "max_document_bytes": 5000000
+}

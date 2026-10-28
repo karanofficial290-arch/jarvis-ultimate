@@ -1,0 +1,6 @@
+# JARVIS backend — all versions verified in the build environment (see docs/STATUS.md)
+starlette>=0.37          # tested with 1.7.0
+uvicorn>=0.29            # tested with 0.54.0
+pydantic>=2.6            # tested with 2.13.5
+PyJWT>=2.8               # tested with 2.15.0
+requests>=2.31           # tested with 2.34.2

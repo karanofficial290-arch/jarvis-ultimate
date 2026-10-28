@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JARVIS Console</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:,">
+</head>
+<body>
+
+<!-- 1. Startup: every line is a real check -->
+<section id="boot" class="boot" aria-live="polite">
+  <div class="boot-inner">
+    <div class="boot-title">J.A.R.V.I.S<span>ULTIMATE&nbsp;AI</span></div>
+    <ol id="boot-log" class="boot-log"></ol>
+  </div>
+</section>
+
+<!-- Login / first-run registration -->
+<section id="auth" class="auth hidden">
+  <form id="auth-form" class="card auth-card" autocomplete="on">
+    <h1 id="auth-title">Sign in</h1>
+    <p id="auth-hint" class="muted"></p>
+    <label>Username <input id="auth-user" name="username" required minlength="3" maxlength="40" autocomplete="username"></label>
+    <label>Password <input id="auth-pass" name="password" type="password" required minlength="10" autocomplete="current-password"></label>
+    <button class="btn primary" type="submit" id="auth-submit">Sign in</button>
+    <p id="auth-error" class="error" role="alert"></p>
+  </form>
+</section>
+
+<div id="shell" class="shell hidden">
+  <nav class="rail" aria-label="Screens">
+    <div class="rail-logo">J</div>
+    <button data-view="dashboard" class="active">Dashboard</button>
+    <button data-view="voice">Voice</button>
+    <button data-view="chat">Chat</button>
+    <button data-view="devices">Devices</button>
+    <button data-view="memory">Memory</button>
+    <button data-view="provider">AI Provider</button>
+    <button data-view="privacy">Privacy</button>
+    <button data-view="history">History</button>
+    <button id="logout" class="rail-bottom">Sign out</button>
+  </nav>
+
+  <header class="topbar">
+    <div class="chips">
+      <span class="chip" id="chip-backend"><i></i>Backend</span>
+      <span class="chip" id="chip-ai"><i></i>AI</span>
+      <span class="chip" id="chip-mic"><i></i>Mic off</span>
+      <span class="chip" id="chip-devices"><i></i>Devices</span>
+    </div>
+    <div id="state-label" class="state-label">IDLE</div>
+  </header>
+
+  <main class="views">
+    <!-- 2. Dashboard -->
+    <section class="view active" id="view-dashboard">
+      <div class="dash-grid">
+        <div class="card core-card">
+          <canvas class="core" id="core-dash" width="420" height="420" aria-label="Assistant core"></canvas>
+          <div class="core-caption"><span class="state-text">Idle</span></div>
+          <form class="quick-form" data-chat-form>
+            <button type="button" class="mic-btn" data-mic aria-label="Push to talk">🎙</button>
+            <input type="text" placeholder="Ask Jarvis…" maxlength="8000" data-chat-input>
+            <button class="btn primary" type="submit">Send</button>
+          </form>
+          <div class="last-reply" id="last-reply"></div>
+        </div>
+        <div class="side-col">
+          <div class="card">
+            <h2>Needs your approval</h2>
+            <div id="pending-list" class="list empty-ok"></div>
+          </div>
+          <div class="card">
+            <h2>Tool activity</h2>
+            <ol id="activity" class="activity"></ol>
+          </div>
+          <div class="card">
+            <h2>Connected devices</h2>
+            <div id="dash-devices" class="list"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Voice conversation -->
+    <section class="view" id="view-voice">
+      <div class="voice-wrap">
+        <canvas class="core" id="core-voice" width="460" height="460"></canvas>
+        <div class="core-caption"><span class="state-text">Idle</span></div>
+        <p id="voice-transcript" class="transcript" aria-live="polite"></p>
+        <div class="voice-controls">
+          <button class="mic-btn big" data-mic aria-label="Push to talk">🎙</button>
+          <button class="btn" id="stop-speaking">Stop speaking</button>
+        </div>
+        <div class="card voice-settings">
+          <label>Language
+            <select id="voice-lang">
+              <option value="en-IN">English (India)</option>
+              <option value="hi-IN">हिन्दी / Hinglish</option>
+              <option value="en-US">English (US)</option>
+              <option value="en-GB">English (UK)</option>
+            </select>
+          </label>
+          <label>Speech rate <input id="voice-rate" type="range" min="0.5" max="2" step="0.1"> <output id="voice-rate-out"></output></label>
+          <label>Voice <select id="voice-name"><option value="">Default</option></select></label>
+          <label class="toggle"><input type="checkbox" id="wake-toggle"> Wake word “Jarvis” (only while this tab is open and visible)</label>
+          <label class="toggle"><input type="checkbox" id="speak-toggle" checked> Speak replies aloud</label>
+          <p class="muted small" id="voice-support"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Chat -->
+    <section class="view" id="view-chat">
+      <div class="chat-grid">
+        <aside class="card convo-list">
+          <div class="row"><h2>Conversations</h2><button class="btn small" id="new-chat">New</button></div>
+          <div id="convos" class="list"></div>
+        </aside>
+        <div class="card chat-panel">
+          <div class="row chat-head"><h2 id="chat-title">New conversation</h2>
+            <button class="btn small" id="summarize-chat" title="Save a summary to memory">Summarise to memory</button></div>
+          <div id="messages" class="messages" aria-live="polite"></div>
+          <form class="chat-form" data-chat-form>
+            <button type="button" class="mic-btn" data-mic aria-label="Push to talk">🎙</button>
+            <textarea rows="2" placeholder="Message Jarvis… (Enter to send, Shift+Enter for a new line)" maxlength="8000" data-chat-input></textarea>
+            <button class="btn primary" type="submit">Send</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 + 10. Device control & connected devices -->
+    <section class="view" id="view-devices">
+      <div class="two-col">
+        <div class="card">
+          <h2>Connected devices</h2>
+          <div id="device-list" class="list"></div>
+          <div class="pair-box">
+            <button class="btn primary" id="pair-btn">Generate pairing code</button>
+            <div id="pair-code" class="pair-code hidden"></div>
+            <p class="muted small">Enter the code in the Jarvis app on your phone or computer, then approve the new device here. Codes expire after 10 minutes and work once.</p>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Device control</h2>
+          <form id="task-form" class="stack">
+            <label>Action
+              <select id="task-tool"></select>
+            </label>
+            <div id="task-args" class="stack"></div>
+            <button class="btn primary" type="submit">Send to device</button>
+            <p id="task-result" class="muted" aria-live="polite"></p>
+          </form>
+          <h2>Recent tasks</h2>
+          <div id="task-list" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Memory manager -->
+    <section class="view" id="view-memory">
+      <div class="card">
+        <div class="row">
+          <h2>Saved memory</h2>
+          <form id="mem-search" class="row"><input type="search" id="mem-q" placeholder="Search memories"><button class="btn small">Search</button></form>
+        </div>
+        <p class="muted small">Saved memory persists across conversations and devices. Temporary context (the current chat) is not saved here. Passwords, codes, card and ID numbers are refused automatically.</p>
+        <form id="mem-add" class="row">
+          <select id="mem-kind"><option value="preference">Preference</option><option value="project">Project</option><option value="fact">Fact</option></select>
+          <input id="mem-content" placeholder="Something Jarvis should remember" maxlength="2000" required>
+          <button class="btn primary">Save</button>
+        </form>
+        <p id="mem-msg" class="muted" aria-live="polite"></p>
+        <div id="mem-list" class="list"></div>
+        <button class="btn danger" id="mem-clear">Delete all memories</button>
+      </div>
+    </section>
+
+    <!-- 7. AI provider -->
+    <section class="view" id="view-provider">
+      <div class="card">
+        <h2>AI provider</h2>
+        <dl id="provider-info" class="kv"></dl>
+        <p class="muted">Provider, model and API keys are configured on the server only (environment variables), so keys never reach phones, browsers or this page. To switch providers, change <code>JARVIS_LLM_PROVIDER</code>, <code>JARVIS_LLM_MODEL</code> and the related variables in the backend <code>.env</code> and restart. Supported: <code>anthropic</code>, <code>openai-compatible</code> (OpenAI, Groq, OpenRouter, a local Ollama…), and <code>local-rules</code> (no AI, simple commands only).</p>
+      </div>
+    </section>
+
+    <!-- 8. Privacy & security -->
+    <section class="view" id="view-privacy">
+      <div class="two-col">
+        <div class="card">
+          <h2>Permissions</h2>
+          <p class="muted small">Jarvis can only use tools you allow here. The AI cannot change these switches.</p>
+          <div id="perm-list" class="stack"></div>
+        </div>
+        <div class="card stack">
+          <h2>Memory &amp; data</h2>
+          <label class="toggle"><input type="checkbox" id="set-memory"> Use and save memory</label>
+          <label class="toggle"><input type="checkbox" id="set-approval"> Ask me before Jarvis saves a memory</label>
+          <label>Timezone <input id="set-tz" placeholder="Asia/Kolkata"></label>
+          <label>Address me as <input id="set-address" maxlength="40"></label>
+          <button class="btn primary" id="save-settings">Save settings</button>
+          <p id="settings-msg" class="muted" aria-live="polite"></p>
+          <hr>
+          <button class="btn danger" id="clear-history">Clear all conversation history</button>
+          <p class="muted small">Voice input in this web console uses your browser's speech service (in Chrome this sends audio to Google). The microphone is only on while the indicator says “Listening”.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Automation history -->
+    <section class="view" id="view-history">
+      <div class="card">
+        <div class="row"><h2>Automation history</h2><button class="btn small" id="refresh-audit">Refresh</button></div>
+        <div class="table-wrap"><table class="audit"><thead><tr><th>Time</th><th>Actor</th><th>Event</th><th>Tool</th><th>Status</th><th>ms</th></tr></thead><tbody id="audit-body"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast hidden" role="status"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

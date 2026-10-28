@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Push-to-talk only; requested at runtime the first time the mic button is pressed. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Normal permission needed to hand an alarm/reminder to the Clock app. -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <!-- Deliberately NOT requested: SEND_SMS, CALL_PHONE, READ_SMS, READ_CONTACTS, CAMERA,
+         QUERY_ALL_PACKAGES, background location, accessibility service. -->
+
+    <queries>
+        <!-- Lets "open <app>" find launcher apps by name (Android 11+ package visibility). -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent><action android:name="android.speech.RecognitionService" /></intent>
+        <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
+    </queries>
+
+    <application
+        android:name=".JarvisApp"
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:icon="@drawable/ic_jarvis"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@style/Theme.Jarvis">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

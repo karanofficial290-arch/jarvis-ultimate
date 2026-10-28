@@ -1,0 +1,17 @@
+.env
+*.db
+*.db-wal
+*.db-shm
+__pycache__/
+*.pyc
+.pytest_cache/
+dist/
+build/
+*.spec.bak
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.apk
+*.keystore
+*.jks
