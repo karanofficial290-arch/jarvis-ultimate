@@ -310,6 +310,21 @@ def create_app(settings: Settings | None = None, provider: LLMProvider | None = 
                       "WHERE user_id=? ORDER BY id DESC LIMIT 200", (uid,))
         return ok(rows)
 
+    async def provider_test(request: Request):
+        """Real round-trip to the configured AI provider (no tools), reporting latency or the failure."""
+        uid = user(request)
+        limit(f"ptest:{uid}", 5, 60)
+        import time as _t
+        from .providers import ProviderError
+        start = _t.monotonic()
+        try:
+            r = await run_in_threadpool(assistant.provider.complete, "Reply with the single word: ready",
+                                        [{"role": "user", "content": "ping"}], [])
+        except ProviderError as e:
+            return ok({"ok": False, "provider": assistant.provider_info, "error": e.user_message})
+        return ok({"ok": True, "provider": assistant.provider_info, "latency_ms": int((_t.monotonic() - start) * 1000),
+                   "sample": (r.text or "")[:80]})
+
     async def tools_list(request: Request):
         uid = user(request)
         avail = {t.name for t in executor.available(uid)}
@@ -445,6 +460,7 @@ def create_app(settings: Settings | None = None, provider: LLMProvider | None = 
         Route(f"/api/actions/{I % 'aid'}/" + "{decision:str}", resolve_action, methods=["POST"]),
         Route("/api/audit", audit),
         Route("/api/tools", tools_list),
+        Route("/api/provider/test", provider_test, methods=["POST"]),
         Route("/api/tasks", list_tasks, methods=["GET"]),
         Route("/api/tasks", direct_task, methods=["POST"]),
         Route(f"/api/tasks/{I % 'tid'}", get_task),

@@ -200,3 +200,12 @@ def test_search_not_configured_is_reported(make_client):
     auth = register(c)
     r = c.post("/api/chat", json={"message": "search for news"}, headers=auth).json()
     assert "not configured" in r["reply"]
+
+
+def test_provider_test_endpoint(make_client):
+    c = make_client(provider=ScriptedProvider([LLMResponse(text="ready"), ProviderAuthError("401")]))
+    auth = register(c)
+    r = c.post("/api/provider/test", headers=auth).json()
+    assert r["ok"] and r["sample"] == "ready" and r["latency_ms"] >= 0
+    r = c.post("/api/provider/test", headers=auth).json()
+    assert not r["ok"] and "rejected the credentials" in r["error"]
