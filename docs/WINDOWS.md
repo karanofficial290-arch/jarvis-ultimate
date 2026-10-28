@@ -1,7 +1,9 @@
 # Windows desktop app
 
-**Status:** agent, local tools, voice logic and credential storage are tested; the PySide6 window
-and the PyInstaller build have not been run (no PySide6/Windows in the build environment).
+**Status:** agent, local tools, voice logic and credentials are tested; GitHub Actions builds the
+PySide6 window offscreen on Windows and produces `JarvisDesktop.exe` (download from Releases).
+Not yet used interactively on a real desktop. Unzip it, put your `allowlist.json` in
+`%APPDATA%\JarvisDesktop\`, and run `JarvisDesktop.exe`.
 
 ## Install & run (Python 3.11+)
 ```powershell

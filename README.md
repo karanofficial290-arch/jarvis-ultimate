@@ -4,11 +4,20 @@ A personal assistant inspired by JARVIS: one backend brain, a web console, a Win
 app, and an Android app — with voice, memory you control, web search, and permission-gated
 device automation across phone and PC.
 
-> **Honest status:** the backend, web console, Windows agent logic and cross-device flow are
-> implemented and tested (88 automated tests, run in the build environment). The PySide6
-> window and the Android app are complete source projects that **have not been compiled yet**,
-> because the build environment had no PySide6, no Android SDK and no Windows. See
-> [`docs/STATUS.md`](docs/STATUS.md) for exactly what is verified and what is not.
+> **Status:** the backend, web console, Windows agent and cross-device flow are tested (90 automated
+> tests). **GitHub Actions builds the Android APK and the Windows EXE on every push** — download them
+> from the [Releases](../../releases) page or the latest [Actions](../../actions) run. The APK and EXE
+> are built and their unit/smoke tests pass on CI, but they have **not yet been tried on a real phone
+> or PC with a microphone**. See [`docs/STATUS.md`](docs/STATUS.md) for exactly what is verified.
+
+[![Tests](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![Android APK](../../actions/workflows/android.yml/badge.svg)](../../actions/workflows/android.yml)
+[![Windows EXE](../../actions/workflows/windows.yml/badge.svg)](../../actions/workflows/windows.yml)
+
+## Download
+- **Android:** `JarvisUltimate-debug.apk` from Releases → install (allow "unknown sources").
+- **Windows:** `JarvisDesktop-windows.zip` from Releases → unzip → `JarvisDesktop.exe`.
+- **Backend:** runs on any PC/server with Python (see Quick start). Both apps connect to it.
 
 ```
 jarvis-ultimate/
@@ -118,7 +127,7 @@ On the emulator use backend URL `http://10.0.2.2:8765`. On a real phone use HTTP
 ```bash
 cd jarvis-ultimate
 pip install -r backend/requirements-dev.txt -r desktop/requirements.txt
-python -m pytest -q backend/tests desktop/tests tests      # 88 tests
+python -m pytest -q backend/tests desktop/tests tests      # 89 tests (+1 GUI test that runs where PySide6 is installed)
 ```
 
 ## Documentation

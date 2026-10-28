@@ -13,8 +13,13 @@ Package registries (PyPI, Maven, Google Maven) were **blocked**, so nothing coul
 
 ```
 python -m pytest -q backend/tests desktop/tests tests
-88 passed
+89 passed, 1 skipped   (the skipped PySide6 GUI test runs and passes on the Windows CI runner)
 ```
+
+GitHub Actions (all green on `main`):
+- **Tests** — the full Python suite on Ubuntu.
+- **Android APK** — Gradle compiles the app (AGP 8.7.3, Kotlin 2.0.21), runs the JVM unit test, uploads `JarvisUltimate-debug.apk`.
+- **Windows EXE** — on `windows-latest`: installs PySide6 etc., runs the desktop tests **including a real PySide6 main-window smoke test**, builds `JarvisDesktop.exe` with PyInstaller.
 
 | Suite | Tests | Covers |
 |---|---|---|
@@ -66,19 +71,18 @@ memory approval, every screen, mobile width) with zero console errors.
 - ✅ Allowlisted actions: open app, open URL, create note, list folder, read document (txt/md/csv/…; PDF/DOCX with optional packages), organise folder (confirmation required, no overwrite, no delete)
 - ✅ No arbitrary command execution, no delete/install/admin actions exist at all
 - ✅ Credential storage via Windows Credential Manager (keyring) or a user-only file
-- 🟡 PySide6 GUI (`desktop/jarvis_desktop/ui/main_window.py`) — not run (PySide6 unavailable)
+- ✅ PySide6 GUI — main window built and exercised offscreen on Windows CI (state, escaping, allowlist); not yet used interactively
 - 🟡 Voice: pyttsx3 SAPI TTS, SpeechRecognition push-to-talk — logic tested with fakes; real audio not run
-- 🟡 PyInstaller spec — not built (needs Windows)
-- ❌ Windows executable — **not built**
+- ✅ Windows executable — built by CI (`JarvisDesktop-windows.zip`); 🟡 not yet launched on a real desktop
 - ❌ Wake word on desktop
 
 ### Android
-- 🟡 Complete Kotlin/Compose project: startup, login, dashboard, voice, chat, devices, memory, AI provider, privacy, history
+- ✅ Compiles on CI. Screens: startup, login, home (greeting), voice, chat, devices, memory, AI provider, privacy, history, with bottom navigation
 - 🟡 SpeechRecognizer push-to-talk (Hindi/English), TextToSpeech with interruption and rate
 - 🟡 Intent tools: open app/URL/camera/settings, notes & reminders (Room + Clock app), battery, SMS draft, dial prep
 - 🟡 EncryptedSharedPreferences for tokens/device secret; HTTPS-only network config
-- 🟡 One JVM unit test (API contract against a real backend response)
-- ❌ APK — **not built** (no Android SDK / Maven access). Kotlin sources passed a syntax-only parse with the Kotlin 2.0.21 compiler; full compilation has not happened, so expect to fix small compile issues on first build.
+- ✅ JVM unit test (API contract against a real backend response) passes on CI
+- ✅ APK — compiles and is built by CI (`JarvisUltimate-debug.apk`, debug-signed); 🟡 not yet installed on a real phone
 - ❌ Wake word / background listening (see ANDROID.md for why)
 - ❌ Executing phone tasks while the app is in the background
 
@@ -96,4 +100,4 @@ memory approval, every screen, mobile width) with zero console errors.
 1. An LLM: an Anthropic or OpenAI-compatible API key, **or** a local Ollama install (free).
 2. Optional: a Brave Search or Tavily API key for web search.
 3. A way to reach the backend over HTTPS from your phone (Tailscale recommended, free for personal use).
-4. Android Studio (for the APK) and a Windows PC with Python 3.11+ (for the desktop app / .exe).
+4. A phone and a Windows PC to try the CI-built APK and EXE.

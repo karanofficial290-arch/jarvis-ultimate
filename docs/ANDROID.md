@@ -1,7 +1,7 @@
 # Android app
 
-**Status: source complete, not yet compiled** (the build environment had no Android SDK).
-Expect possibly a few small compile fixes on the first build.
+**Status:** compiles on GitHub Actions; the debug APK is attached to each release. Not yet tested
+on a physical phone. The APK is debug-signed — for Play Store use, add your own release signing.
 
 ## Build
 1. Install Android Studio (Ladybug 2024.2+), which bundles JDK 17+ and the SDK.
